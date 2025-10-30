@@ -5,26 +5,44 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import CartItem from '@/components/CartItem';
+import { ordersAPI, cartAPI } from '@/lib/api';
 
 export default function CartPage() {
   const { cart, getTotalPrice, clearCart } = useCart();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const router = useRouter();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!isAuthenticated) {
       router.push('/login?redirect=/cart');
       return;
     }
-    
+
+    if (cart.length === 0) return;
+
     setIsCheckingOut(true);
-    // Simulate checkout process
-    setTimeout(() => {
+    try {
+      // Sipariş nesnesi
+      const orderPayload = {
+        user_name: user?.name,
+        items: cart,
+        total: Number(getTotalPrice().toFixed(2)),
+        status: 'completed',
+      };
+
+      await ordersAPI.create(orderPayload);
+
+      // Supabase cart temizliği (server-side) ve UI state temizliği
+      try { if (orderPayload.user_name) await cartAPI.clearAll(orderPayload.user_name); } catch {}
       clearCart();
+
       router.push('/profile?success=order');
+    } catch (e) {
+      console.error('Checkout hata:', e);
+    } finally {
       setIsCheckingOut(false);
-    }, 2000);
+    }
   };
 
   if (cart.length === 0) {

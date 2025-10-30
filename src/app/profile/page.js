@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isWishlistOpen, setIsWishlistOpen] = useState(true);
   const [isOrdersOpen, setIsOrdersOpen] = useState(true);
+  const [openOrderIds, setOpenOrderIds] = useState({});
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderSuccess = searchParams.get('success') === 'order';
@@ -25,27 +26,19 @@ export default function ProfilePage() {
       return;
     }
 
-    // Simulate loading orders
     const loadOrders = async () => {
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Mock orders data
-        const mockOrders = [
-          {
-            id: 1,
-            date: new Date().toISOString(),
-            items: [
-              { id: 1, title: 'Sample Product 1', price: 29.99, quantity: 2 },
-              { id: 2, title: 'Sample Product 2', price: 19.99, quantity: 1 }
-            ],
-            total: 79.97,
-            status: 'completed'
-          }
-        ];
-        
-        setOrders(mockOrders);
+        const res = await ordersAPI.getByUser(user?.name);
+        const data = Array.isArray(res.data) ? res.data : [];
+        // Supabase kolon isimleri: created_at -> date için kullanacağız
+        const mapped = data.map((o) => ({
+          id: o.id,
+          date: o.created_at ?? o.date,
+          items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items || [],
+          total: Number(o.total ?? 0),
+          status: o.status || 'completed',
+        }));
+        setOrders(mapped);
       } catch (error) {
         console.error('Error loading orders:', error);
       } finally {
@@ -54,7 +47,11 @@ export default function ProfilePage() {
     };
 
     loadOrders();
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, user?.name]);
+
+  const toggleOrder = (orderId) => {
+    setOpenOrderIds((prev) => ({ ...prev, [orderId]: !prev[orderId] }));
+  };
 
   if (!isAuthenticated) {
     return null;
@@ -180,7 +177,7 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   {orders.map((order) => (
                     <div key={order.id} className="border border-gray-200 dark:border-slate-600 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center justify-between mb-3 cursor-pointer" onClick={() => toggleOrder(order.id)}>
                         <div>
                           <p className="font-medium text-gray-900 dark:text-white">
                             Sipariş #{order.id}
@@ -200,10 +197,13 @@ export default function ProfilePage() {
                           }`}>
                             {order.status === 'completed' ? 'Tamamlandı' : 'Beklemede'}
                           </span>
+                          <div className={`mt-2 transition-transform ${openOrderIds[order.id] ? 'rotate-180' : ''}`}>
+                            <svg className="w-5 h-5 inline-block text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                          </div>
                         </div>
                       </div>
                       
-                      <div className="space-y-2">
+                      <div className={`space-y-2 transition-all duration-300 overflow-hidden ${openOrderIds[order.id] ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'}`}>
                         {order.items.map((item, index) => (
                           <div key={index} className="flex items-center justify-between text-sm">
                             <span className="text-gray-600 dark:text-gray-300">

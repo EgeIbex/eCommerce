@@ -10,6 +10,7 @@ const supabaseApi = axios.create({
     apikey: SUPABASE_KEY,
     Authorization: `Bearer ${SUPABASE_KEY}`,
     'Content-Type': 'application/json',
+    Prefer: 'return=representation'
   },
 });
 
@@ -79,6 +80,12 @@ export const cartAPI = {
   remove: (userName, productId) =>
     supabaseApi.delete('/cart', {
       params: { user_name: `eq.${userName}`, product_id: `eq.${productId}` },
+    }),
+
+  // Kullanıcının tüm sepet kayıtlarını siler
+  clearAll: (userName) =>
+    supabaseApi.delete('/cart', {
+      params: { user_name: `eq.${userName}` },
     }),
 };
 
